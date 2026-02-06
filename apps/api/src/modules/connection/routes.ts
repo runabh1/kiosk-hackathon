@@ -12,17 +12,17 @@ router.use(authenticate);
 router.get('/', async (req: AuthReq, res, next) => {
   try {
     const { serviceType, status } = req.query;
-    
+
     const where: any = { userId: req.user!.id };
-    
+
     if (serviceType) where.serviceType = serviceType as string;
     if (status) where.status = status as string;
-    
+
     const connections = await prisma.serviceConnection.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     });
-    
+
     res.json({
       success: true,
       data: connections,
@@ -46,11 +46,11 @@ router.get('/:id', async (req: AuthReq, res, next) => {
         grievances: { orderBy: { createdAt: 'desc' }, take: 3 },
       },
     });
-    
+
     if (!connection) {
       throw new ApiError('Connection not found', 404);
     }
-    
+
     res.json({
       success: true,
       data: connection,
@@ -74,11 +74,11 @@ const applyConnectionSchema = z.object({
 router.post('/apply', async (req: AuthReq, res, next) => {
   try {
     const data = applyConnectionSchema.parse(req.body);
-    
+
     // Generate connection number
     const prefix = data.serviceType.substring(0, 3);
     const connectionNo = `${prefix}${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-    
+
     const connection = await prisma.serviceConnection.create({
       data: {
         userId: req.user!.id,
@@ -87,7 +87,7 @@ router.post('/apply', async (req: AuthReq, res, next) => {
         status: 'PENDING',
       },
     });
-    
+
     // Create notification
     await prisma.notification.create({
       data: {
@@ -100,7 +100,7 @@ router.post('/apply', async (req: AuthReq, res, next) => {
         data: { connectionId: connection.id },
       },
     });
-    
+
     res.status(201).json({
       success: true,
       data: connection,
@@ -120,7 +120,7 @@ const meterReadingSchema = z.object({
 router.post('/:id/meter-reading', async (req: AuthReq, res, next) => {
   try {
     const { reading, imageUrl } = meterReadingSchema.parse(req.body);
-    
+
     const connection = await prisma.serviceConnection.findFirst({
       where: {
         id: req.params.id,
@@ -128,16 +128,16 @@ router.post('/:id/meter-reading', async (req: AuthReq, res, next) => {
         status: 'ACTIVE',
       },
     });
-    
+
     if (!connection) {
       throw new ApiError('Active connection not found', 404);
     }
-    
+
     // Validate reading is higher than last
     if (connection.lastReading && reading < connection.lastReading) {
       throw new ApiError('New reading cannot be less than previous reading', 400);
     }
-    
+
     // Create meter reading
     const meterReading = await prisma.meterReading.create({
       data: {
@@ -148,7 +148,7 @@ router.post('/:id/meter-reading', async (req: AuthReq, res, next) => {
         imageUrl,
       },
     });
-    
+
     // Update connection
     await prisma.serviceConnection.update({
       where: { id: connection.id },
@@ -157,7 +157,7 @@ router.post('/:id/meter-reading', async (req: AuthReq, res, next) => {
         lastReadingDate: new Date(),
       },
     });
-    
+
     res.json({
       success: true,
       data: meterReading,
@@ -186,11 +186,11 @@ router.get('/:id/status', async (req: AuthReq, res, next) => {
         lastReadingDate: true,
       },
     });
-    
+
     if (!connection) {
       throw new ApiError('Connection not found', 404);
     }
-    
+
     res.json({
       success: true,
       data: connection,
@@ -200,4 +200,26 @@ router.get('/:id/status', async (req: AuthReq, res, next) => {
   }
 });
 
+
+// Get sanction letter
+import { getSanctionLetterData, generateSanctionLetterHTML } from '../service-request/document-generator';
+
+router.get('/:id/sanction-letter', async (req: AuthReq, res, next) => {
+  try {
+    const { lang = 'en' } = req.query;
+    const data = await getSanctionLetterData(req.params.id, req.user!.id);
+
+    if (!data) {
+      throw new ApiError('Sanction letter not found or connection not active', 404);
+    }
+
+    const html = generateSanctionLetterHTML(data, lang as 'en' | 'hi');
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
+

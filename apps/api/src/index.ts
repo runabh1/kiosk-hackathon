@@ -17,6 +17,7 @@ import adminRoutes from './modules/admin/routes';
 import sigmRoutes from './modules/sigm/routes';
 import paymentRoutes from './modules/payment/routes';
 import uploadRoutes from './modules/upload/routes';
+import serviceRequestRoutes from './modules/service-request/routes';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -65,6 +66,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/sigm', sigmRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/service-requests', serviceRequestRoutes);
 
 // Error handling
 app.use(errorHandler);

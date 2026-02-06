@@ -106,6 +106,7 @@ model User {
   notifications  Notification[]
   documents      Document[]
   sessions       Session[]
+  serviceRequests ServiceRequest[]
   // SIGM Relations
   sigmLogs       SIGMLog[]
   requestLocks   RequestLock[]
@@ -157,6 +158,7 @@ model ServiceConnection {
   meterReadings MeterReading[]
   grievances    Grievance[]
   documents     Document[]
+  serviceRequests ServiceRequest[]
 
   @@index([userId])
   @@index([connectionNo])
@@ -279,6 +281,37 @@ model GrievanceTimeline {
   grievance Grievance @relation(fields: [grievanceId], references: [id], onDelete: Cascade)
 
   @@index([grievanceId])
+}
+
+enum RequestStatus {
+  SUBMITTED
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model ServiceRequest {
+  id              String        @id @default(cuid())
+  userId          String
+  connectionId    String?
+  type            String        // "NAME_CHANGE", "LOAD_CHANGE", "DISCONNECTION", "METER_TEST"
+  status          RequestStatus @default(SUBMITTED)
+  category        String?       // "IDENTITY", "LOAD", "TECHNICAL", "OTHER"
+  data            Json          // Details of the request
+  description     String?
+  assignedTo      String?       // Staff user ID
+  resolvedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection ServiceConnection? @relation(fields: [connectionId], references: [id])
+
+  @@index([userId])
+  @@index([connectionId])
+  @@index([status])
+  @@index([type])
 }
 
 // ============================================

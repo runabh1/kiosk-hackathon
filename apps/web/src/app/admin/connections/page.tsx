@@ -73,6 +73,7 @@ const navItems = [
     { id: "connections", name: "Connections", nameHi: "कनेक्शन", icon: Zap, href: "/admin/connections" },
     { id: "payments", name: "Payments", nameHi: "भुगतान", icon: CreditCard, href: "/admin/payments" },
     { id: "grievances", name: "Grievances", nameHi: "शिकायतें", icon: MessageSquare, href: "/admin/grievances" },
+    { id: "requests", name: "Service Requests", nameHi: "सेवा अनुरोध", icon: Activity, href: "/admin/service-requests" },
     { id: "reports", name: "Reports", nameHi: "रिपोर्ट", icon: BarChart3, href: "/admin/reports" },
     { id: "kiosks", name: "Kiosks", nameHi: "कियोस्क", icon: Monitor, href: "/admin/kiosks" },
     { id: "alerts", name: "Alerts", nameHi: "अलर्ट", icon: Bell, href: "/admin/alerts" },
@@ -349,8 +350,8 @@ export default function AdminConnectionsPage() {
                                                     </td>
                                                     <td className="px-6 py-4 text-center">
                                                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${c.status === "ACTIVE" ? "bg-success/10 text-success border border-success/20" :
-                                                                c.status === "PENDING" ? "bg-amber-100 text-amber-700 border border-amber-200" :
-                                                                    "bg-slate-100 text-slate-600 border border-slate-200"
+                                                            c.status === "PENDING" ? "bg-amber-100 text-amber-700 border border-amber-200" :
+                                                                "bg-slate-100 text-slate-600 border border-slate-200"
                                                             }`}>
                                                             {c.status}
                                                         </span>

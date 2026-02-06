@@ -18,6 +18,7 @@ import {
   AlertCircle,
   CreditCard,
   Sparkles,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LanguageToggle } from "@/components/kiosk/language-toggle";
@@ -107,10 +108,10 @@ export default function DashboardPage() {
 
   const quickLinks = [
     { id: "bills", name: t("actions.payBills"), icon: FileText, href: "/bills", count: pendingBills.length },
-    { id: "payments", name: "Payment History", icon: CreditCard, href: "/payments" },
+    { id: "connections", name: "My Connections", icon: Zap, href: "/connections" },
     { id: "grievances", name: t("actions.grievances"), icon: MessageSquare, href: "/grievances" },
+    { id: "requests", name: "Service Requests", icon: Activity, href: "/service-requests" },
     { id: "notifications", name: t("actions.notifications"), icon: Bell, href: "/notifications" },
-    { id: "profile", name: "My Profile", icon: User, href: "/profile" },
   ];
 
   if (!isAuthenticated) return null;

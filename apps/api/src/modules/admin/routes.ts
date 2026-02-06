@@ -573,6 +573,86 @@ router.put('/connections/:id/status', async (req: AuthReq, res, next) => {
   }
 });
 
+
+// Get all service requests (admin)
+router.get('/service-requests', async (req: AuthReq, res, next) => {
+  try {
+    const { status, type, search, page = '1', limit = '20' } = req.query;
+
+    const where: any = {};
+    if (status && status !== 'all') where.status = status as any;
+    if (type && type !== 'all') where.type = type as string;
+    if (search) {
+      where.OR = [
+        { user: { name: { contains: search as string, mode: 'insensitive' } } },
+        { user: { phone: { contains: search as string } } },
+        { connection: { connectionNo: { contains: search as string, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [requests, total] = await Promise.all([
+      prisma.serviceRequest.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, phone: true } },
+          connection: { select: { id: true, connectionNo: true, serviceType: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (parseInt(page as string) - 1) * parseInt(limit as string),
+        take: parseInt(limit as string),
+      }),
+      prisma.serviceRequest.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: requests,
+      pagination: {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit as string)),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update service request status
+router.put('/service-requests/:id/status', async (req: AuthReq, res, next) => {
+  try {
+    const { status, resolution } = req.body;
+
+    const request = await prisma.serviceRequest.update({
+      where: { id: req.params.id },
+      data: {
+        status: status as any,
+        resolvedAt: status === 'COMPLETED' ? new Date() : undefined,
+      },
+      include: { user: true }
+    });
+
+    // Notify user
+    await prisma.notification.create({
+      data: {
+        userId: request.userId,
+        type: 'SERVICE_UPDATE',
+        title: 'Service Request Update',
+        titleHi: 'सेवा अनुरोध अपडेट',
+        message: `Your request for ${request.type.replace('_', ' ')} is now ${status}.`,
+        messageHi: `आपका ${request.type.replace('_', ' ')} के लिए अनुरोध अब ${status} है।`,
+        data: { requestId: request.id, status },
+      },
+    });
+
+    res.json({ success: true, data: request });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
+
 
 

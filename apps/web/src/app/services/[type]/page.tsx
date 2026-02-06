@@ -53,7 +53,7 @@ const SERVICE_CONFIG: Record<string, {
     icon: Zap,
     color: "text-electricity",
     bg: "bg-electricity-light",
-    features: ["Pay Bills", "View Usage", "Report Outage", "New Connection"],
+    features: ["Pay Bills", "Submit Reading", "Service Request", "New Connection"],
   },
   gas: {
     name: "Gas",
@@ -61,7 +61,7 @@ const SERVICE_CONFIG: Record<string, {
     icon: Flame,
     color: "text-gas",
     bg: "bg-gas-light",
-    features: ["Pay Bills", "Book Cylinder", "Report Leakage", "New Connection"],
+    features: ["Pay Bills", "Book Cylinder", "Service Request", "New Connection"],
   },
   water: {
     name: "Water",
@@ -69,7 +69,7 @@ const SERVICE_CONFIG: Record<string, {
     icon: Droplets,
     color: "text-water",
     bg: "bg-water-light",
-    features: ["Pay Bills", "Report Leakage", "Quality Complaint", "New Connection"],
+    features: ["Pay Bills", "Report Leakage", "Service Request", "New Connection"],
   },
   municipal: {
     name: "Municipal",
@@ -77,7 +77,7 @@ const SERVICE_CONFIG: Record<string, {
     icon: Building2,
     color: "text-municipal",
     bg: "bg-municipal-light",
-    features: ["Waste Collection", "Streetlight Issue", "Road Repair", "Drainage"],
+    features: ["Waste Collection", "Streetlight Issue", "Service Request", "Road Repair"],
   },
 };
 
@@ -192,7 +192,9 @@ export default function ServicePage() {
                 href={
                   feature.includes("Bill") ? "/bills" :
                     feature.includes("Connection") ? "/connections/new" :
-                      "/grievances/new"
+                      feature.includes("Request") ? "/service-requests/new" :
+                        feature.includes("Reading") ? "/connections" :
+                          "/grievances/new"
                 }
                 className="kiosk-card flex flex-col items-center text-center p-4 hover:border-cta border-2 border-transparent"
               >
