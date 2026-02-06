@@ -14,6 +14,7 @@ import connectionRoutes from './modules/connection/routes';
 import grievanceRoutes from './modules/grievance/routes';
 import notificationRoutes from './modules/notification/routes';
 import adminRoutes from './modules/admin/routes';
+import sigmRoutes from './modules/sigm/routes';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -46,8 +47,8 @@ app.use(requestLogger);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'SUVIDHA API is running',
     timestamp: new Date().toISOString(),
   });
@@ -60,6 +61,7 @@ app.use('/api/connections', connectionRoutes);
 app.use('/api/grievances', grievanceRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/sigm', sigmRoutes);
 
 // Error handling
 app.use(errorHandler);

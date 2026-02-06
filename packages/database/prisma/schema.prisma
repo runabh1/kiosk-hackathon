@@ -99,13 +99,17 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  connections   ServiceConnection[]
-  bills         Bill[]
-  payments      Payment[]
-  grievances    Grievance[]
-  notifications Notification[]
-  documents     Document[]
-  sessions      Session[]
+  connections    ServiceConnection[]
+  bills          Bill[]
+  payments       Payment[]
+  grievances     Grievance[]
+  notifications  Notification[]
+  documents      Document[]
+  sessions       Session[]
+  // SIGM Relations
+  sigmLogs       SIGMLog[]
+  requestLocks   RequestLock[]
+  backendActions BackendActionQueue[]
 
   @@index([phone])
   @@index([email])
@@ -399,5 +403,106 @@ model IntentLog {
   @@index([service])
   @@index([action])
   @@index([confidence])
+}
+
+// ============================================
+// SINGLE-INTERACTION GUARANTEE MODE (SIGM)
+// ============================================
+
+enum GuaranteeStatus {
+  GUARANTEED      // Request will be completed without repeat visits
+  NOT_GUARANTEED  // Additional backend action required but no re-application needed
+  BLOCKED         // Cannot proceed - requires citizen action
+}
+
+enum RequestType {
+  BILL_PAYMENT
+  NEW_CONNECTION
+  COMPLAINT_REGISTRATION
+  DOCUMENT_REQUEST
+  METER_READING
+}
+
+enum BackendActionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+// SIGM check log for every request
+model SIGMLog {
+  id                  String          @id @default(cuid())
+  userId              String
+  kioskId             String?
+  requestType         RequestType
+  serviceType         ServiceType
+  guaranteeStatus     GuaranteeStatus
+  blockingReasons     Json?           // Array of blocking reasons with citizen-friendly messages
+  checkDetails        Json?           // Full validation details for debugging
+  citizenAcknowledged Boolean         @default(false)
+  acknowledgedAt      DateTime?
+  requestSubmitted    Boolean         @default(false)
+  submittedAt         DateTime?
+  requestId           String?         // Link to the actual request (payment, grievance, connection, etc.)
+  createdAt           DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  backendActions BackendActionQueue[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([guaranteeStatus])
+  @@index([requestType])
+  @@index([serviceType])
+}
+
+// Request Lock - Prevents duplicate submission for same service/consumer
+model RequestLock {
+  id            String      @id @default(cuid())
+  userId        String
+  serviceType   ServiceType
+  requestType   RequestType
+  lockKey       String      @unique  // Composite key: userId_serviceType_requestType_identifier
+  lockedAt      DateTime    @default(now())
+  expiresAt     DateTime    // Locks expire after certain period
+  requestId     String?     // Reference to the created request
+  isActive      Boolean     @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lockKey])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+// Backend Action Queue - For non-guaranteed requests that need backend follow-up
+model BackendActionQueue {
+  id              String              @id @default(cuid())
+  sigmLogId       String
+  userId          String
+  serviceType     ServiceType
+  requestType     RequestType
+  actionRequired  String              // Human-readable action description
+  actionRequiredHi String?            // Hindi translation
+  actionDetails   Json?               // Technical details for backend processing
+  priority        Int                 @default(5) // 1 = highest, 10 = lowest
+  status          BackendActionStatus @default(PENDING)
+  assignedTo      String?             // Staff/technician ID
+  scheduledFor    DateTime?           // When the action is scheduled
+  completedAt     DateTime?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  sigmLog SIGMLog @relation(fields: [sigmLogId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([scheduledFor])
+  @@index([sigmLogId])
 }
 

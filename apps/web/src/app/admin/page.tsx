@@ -27,9 +27,11 @@ import {
     ChevronRight,
     RefreshCw,
     Sparkles,
+    Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/store/auth";
+import { SIGMMetricsCard } from "@/components/admin/SIGMMetricsCard";
 
 interface DashboardStats {
     totalUsers: number;
@@ -79,6 +81,7 @@ const navItems = [
     { id: "kiosks", name: "Kiosks", nameHi: "कियोस्क", icon: Monitor, href: "/admin/kiosks" },
     { id: "alerts", name: "Alerts", nameHi: "अलर्ट", icon: Bell, href: "/admin/alerts" },
     { id: "intents", name: "Smart Assistant", nameHi: "स्मार्ट असिस्टेंट", icon: Sparkles, href: "/admin/intents" },
+    { id: "sigm", name: "SIGM Metrics", nameHi: "सिंगल-इंटरेक्शन", icon: Shield, href: "/admin" },
 ];
 
 export default function AdminDashboardPage() {
@@ -522,6 +525,11 @@ export default function AdminDashboardPage() {
                                         );
                                     })}
                                 </div>
+                            </div>
+
+                            {/* SIGM Metrics */}
+                            <div className="mt-6">
+                                <SIGMMetricsCard />
                             </div>
                         </>
                     )}

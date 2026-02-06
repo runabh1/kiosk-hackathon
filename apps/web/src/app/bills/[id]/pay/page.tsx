@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
@@ -11,13 +11,15 @@ import {
   Building2,
   CheckCircle,
   Loader2,
-  Receipt,
   Download,
   Printer,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthStore } from "@/lib/store/auth";
+import { useSIGM } from "@/lib/hooks/useSIGM";
+import { GuaranteeCheckModal } from "@/components/kiosk/GuaranteeCheckModal";
 
 interface Bill {
   id: string;
@@ -25,22 +27,27 @@ interface Bill {
   connectionNumber: string;
   billNumber: string;
   amount: number;
+  totalAmount: number;
   dueDate: string;
   billPeriod: string;
+  connection?: {
+    connectionNo: string;
+    serviceType: string;
+  };
 }
 
 interface PaymentResult {
+  paymentId: string;
   transactionId: string;
   amount: number;
   status: string;
-  timestamp: string;
-  receiptNumber: string;
+  receiptNo: string;
 }
 
-type PaymentMethod = "UPI" | "CARD" | "NETBANKING";
+type PaymentMethod = "UPI" | "CARD" | "NET_BANKING";
 
 export default function PayBillPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
@@ -52,6 +59,34 @@ export default function PayBillPage() {
   const [processing, setProcessing] = useState(false);
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
   const [upiId, setUpiId] = useState("");
+  const [sigmCompleted, setSigmCompleted] = useState(false);
+
+  // SIGM Hook Integration
+  const {
+    isChecking,
+    checkResult,
+    isModalOpen,
+    performCheck,
+    acknowledgeCheck,
+    recordSubmission,
+    closeModal,
+    reset: resetSIGM,
+    canProceed,
+    isBlocked,
+  } = useSIGM({
+    requestType: "BILL_PAYMENT",
+    serviceType: (bill?.serviceType as any) || "ELECTRICITY",
+    onCheckComplete: (result) => {
+      console.log("SIGM Check completed:", result.guaranteeStatus);
+    },
+    onError: (error) => {
+      toast({
+        title: "Guarantee Check Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -81,7 +116,38 @@ export default function PayBillPage() {
     }
   };
 
-  const handlePayment = async () => {
+  // Initiate SIGM check before payment
+  const handleInitiatePayment = async () => {
+    if (!paymentMethod || !bill) return;
+
+    // Perform SIGM guarantee check
+    await performCheck({
+      billId: bill.id,
+      amount: bill.totalAmount || bill.amount,
+      paymentMethod,
+    });
+  };
+
+  // Handle acknowledgment
+  const handleAcknowledge = async (sigmLogId: string) => {
+    await acknowledgeCheck();
+  };
+
+  // Handle cancel from modal
+  const handleCancel = () => {
+    closeModal();
+    resetSIGM();
+  };
+
+  // Handle proceed after SIGM check
+  const handleProceed = async () => {
+    closeModal();
+    setSigmCompleted(true);
+    await processPayment();
+  };
+
+  // Process the actual payment
+  const processPayment = async () => {
     if (!paymentMethod || !bill) return;
 
     setProcessing(true);
@@ -97,8 +163,8 @@ export default function PayBillPage() {
           },
           body: JSON.stringify({
             billId: bill.id,
-            paymentMethod,
-            upiId: paymentMethod === "UPI" ? upiId : undefined,
+            amount: bill.totalAmount || bill.amount,
+            method: paymentMethod,
           }),
         }
       );
@@ -107,10 +173,17 @@ export default function PayBillPage() {
 
       if (data.success) {
         setPaymentResult(data.data);
+
+        // Record the submission with SIGM (fire-and-forget, don't block payment success)
+        if (checkResult?.sigmLogId) {
+          recordSubmission(data.data.paymentId, bill.id).catch(() => {
+            // Silently ignore SIGM recording errors - payment was successful
+          });
+        }
+
         toast({
           title: "Payment Successful!",
-          description: `Transaction ID: ${data.data.transactionId}`,
-          variant: "success",
+          description: `Receipt No: ${data.data.receiptNo}`,
         });
       } else {
         throw new Error(data.error || "Payment failed");
@@ -129,7 +202,7 @@ export default function PayBillPage() {
   const paymentMethods = [
     { id: "UPI" as const, name: "UPI / BHIM", icon: Smartphone, desc: "Pay using any UPI app" },
     { id: "CARD" as const, name: "Credit/Debit Card", icon: CreditCard, desc: "Visa, Mastercard, RuPay" },
-    { id: "NETBANKING" as const, name: "Net Banking", icon: Building2, desc: "All major banks" },
+    { id: "NET_BANKING" as const, name: "Net Banking", icon: Building2, desc: "All major banks" },
   ];
 
   if (!isAuthenticated) return null;
@@ -146,11 +219,30 @@ export default function PayBillPage() {
         </header>
 
         <div className="flex-1 p-6 max-w-md mx-auto w-full">
+          {/* Guarantee Badge */}
+          {checkResult?.guaranteeStatus === "GUARANTEED" && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+              <Shield className="w-6 h-6 text-emerald-500" />
+              <div>
+                <p className="font-medium text-emerald-800 text-sm">
+                  {i18n.language === "hi"
+                    ? "गारंटीड: आपका भुगतान पूर्ण हो गया"
+                    : "Guaranteed: Your payment is complete"}
+                </p>
+                <p className="text-emerald-600 text-xs">
+                  {i18n.language === "hi"
+                    ? "किसी दोबारा विजिट की जरूरत नहीं"
+                    : "No repeat visit needed"}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-xl shadow-kiosk p-6 mb-6">
             <div className="text-center mb-6">
               <p className="text-muted-foreground text-sm">Amount Paid</p>
               <p className="font-heading text-4xl text-primary font-bold">
-                ₹{paymentResult.amount.toLocaleString()}
+                ₹{paymentResult.amount?.toLocaleString() || (bill?.totalAmount || bill?.amount)?.toLocaleString()}
               </p>
             </div>
 
@@ -161,11 +253,7 @@ export default function PayBillPage() {
               </div>
               <div className="flex justify-between py-2 border-b">
                 <span className="text-muted-foreground">Receipt No.</span>
-                <span className="font-mono">{paymentResult.receiptNumber}</span>
-              </div>
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-muted-foreground">Date & Time</span>
-                <span>{new Date(paymentResult.timestamp).toLocaleString()}</span>
+                <span className="font-mono">{paymentResult.receiptNo}</span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-muted-foreground">Status</span>
@@ -206,6 +294,17 @@ export default function PayBillPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      {/* SIGM Guarantee Check Modal */}
+      <GuaranteeCheckModal
+        isOpen={isModalOpen}
+        checkResult={checkResult}
+        isLoading={isChecking}
+        onAcknowledge={handleAcknowledge}
+        onCancel={handleCancel}
+        onProceed={handleProceed}
+        language={i18n.language as "en" | "hi"}
+      />
+
       {/* Header */}
       <header className="bg-primary text-white py-4 px-6">
         <div className="max-w-md mx-auto flex items-center gap-4">
@@ -214,7 +313,7 @@ export default function PayBillPage() {
           </Link>
           <div>
             <h1 className="font-heading text-xl font-bold">Pay Bill</h1>
-            <p className="text-white/80 text-sm">Bill #{bill.billNumber}</p>
+            <p className="text-white/80 text-sm">Bill #{bill.billNumber || bill.connection?.connectionNo}</p>
           </div>
         </div>
       </header>
@@ -224,20 +323,37 @@ export default function PayBillPage() {
         <div className="bg-white rounded-xl shadow-kiosk p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-muted-foreground text-sm">{bill.serviceType}</p>
+              <p className="text-muted-foreground text-sm">{bill.serviceType || bill.connection?.serviceType}</p>
               <p className="text-sm text-muted-foreground">
-                Connection: {bill.connectionNumber}
+                Connection: {bill.connectionNumber || bill.connection?.connectionNo}
               </p>
             </div>
             <div className="text-right">
               <p className="text-muted-foreground text-sm">Period</p>
-              <p className="font-medium">{bill.billPeriod}</p>
+              <p className="font-medium">{bill.billPeriod || "Current"}</p>
             </div>
           </div>
           <div className="border-t pt-4">
             <p className="text-muted-foreground text-sm">Amount to Pay</p>
             <p className="font-heading text-3xl text-primary font-bold">
-              ₹{bill.amount.toLocaleString()}
+              ₹{(bill.totalAmount || bill.amount)?.toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        {/* SIGM Status Banner */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <Shield className="w-5 h-5 text-blue-500" />
+          <div className="text-sm">
+            <p className="text-blue-800 font-medium">
+              {i18n.language === "hi"
+                ? "सिंगल-इंटरेक्शन गारंटी मोड सक्षम"
+                : "Single-Interaction Guarantee Mode Enabled"}
+            </p>
+            <p className="text-blue-600 text-xs">
+              {i18n.language === "hi"
+                ? "भुगतान से पहले हम आपके अनुरोध की जांच करेंगे"
+                : "We'll verify your request before payment"}
             </p>
           </div>
         </div>
@@ -249,15 +365,13 @@ export default function PayBillPage() {
             <button
               key={method.id}
               onClick={() => setPaymentMethod(method.id)}
-              className={`w-full p-4 rounded-xl border-2 flex items-center gap-4 transition-all cursor-pointer ${
-                paymentMethod === method.id
-                  ? "border-cta bg-cta/5"
-                  : "border-slate-200 hover:border-cta/50"
-              }`}
+              className={`w-full p-4 rounded-xl border-2 flex items-center gap-4 transition-all cursor-pointer ${paymentMethod === method.id
+                ? "border-cta bg-cta/5"
+                : "border-slate-200 hover:border-cta/50"
+                }`}
             >
-              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                paymentMethod === method.id ? "bg-cta text-white" : "bg-slate-100 text-slate-600"
-              }`}>
+              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${paymentMethod === method.id ? "bg-cta text-white" : "bg-slate-100 text-slate-600"
+                }`}>
                 <method.icon className="w-6 h-6" />
               </div>
               <div className="text-left">
@@ -287,29 +401,34 @@ export default function PayBillPage() {
           </div>
         )}
 
-        {/* Pay Button */}
+        {/* Pay Button with SIGM Check */}
         <Button
           variant="cta"
           size="xl"
           className="w-full"
-          disabled={!paymentMethod || processing || (paymentMethod === "UPI" && !upiId)}
-          onClick={handlePayment}
+          disabled={!paymentMethod || processing || isChecking || (paymentMethod === "UPI" && !upiId)}
+          onClick={handleInitiatePayment}
         >
-          {processing ? (
+          {isChecking ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              Verifying...
+            </>
+          ) : processing ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
               Processing...
             </>
           ) : (
             <>
-              <CreditCard className="w-5 h-5 mr-2" />
-              Pay ₹{bill.amount.toLocaleString()}
+              <Shield className="w-5 h-5 mr-2" />
+              Verify & Pay ₹{(bill.totalAmount || bill.amount)?.toLocaleString()}
             </>
           )}
         </Button>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
-          🔒 Secured by 256-bit encryption
+          🔒 Secured by 256-bit encryption • Single-Interaction Guaranteed
         </p>
       </div>
     </div>

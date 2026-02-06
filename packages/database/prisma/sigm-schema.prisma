@@ -1,0 +1,89 @@
+// ============================================
+// SINGLE-INTERACTION GUARANTEE MODE (SIGM)
+// ============================================
+
+// Guarantee Check Result - Logged for every pre-submission check
+enum GuaranteeStatus {
+  GUARANTEED      // Request will be completed without repeat visits
+  NOT_GUARANTEED  // Additional backend action required
+  BLOCKED         // Cannot proceed - requires citizen action
+}
+
+enum RequestType {
+  BILL_PAYMENT
+  NEW_CONNECTION
+  COMPLAINT_REGISTRATION
+  DOCUMENT_REQUEST
+  METER_READING
+}
+
+// SIGM check log for every request
+model SIGMLog {
+  id                String          @id @default(cuid())
+  userId            String
+  kioskId           String?
+  requestType       RequestType
+  serviceType       ServiceType
+  guaranteeStatus   GuaranteeStatus
+  blockingReasons   Json?           // Array of blocking reasons
+  checkDetails      Json?           // Full validation details
+  citizenAcknowledged Boolean       @default(false)
+  acknowledgedAt    DateTime?
+  requestSubmitted  Boolean         @default(false)
+  submittedAt       DateTime?
+  requestId         String?         // Link to the actual request (bill, grievance, etc.)
+  createdAt         DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([guaranteeStatus])
+  @@index([requestType])
+  @@index([serviceType])
+}
+
+// Request Lock - Prevents duplicate submission
+model RequestLock {
+  id            String      @id @default(cuid())
+  userId        String
+  serviceType   ServiceType
+  requestType   RequestType
+  lockKey       String      @unique  // Composite key: userId_serviceType_requestType_identifier
+  lockedAt      DateTime    @default(now())
+  expiresAt     DateTime    // Locks expire after certain period
+  requestId     String?     // Reference to the created request
+  isActive      Boolean     @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lockKey])
+  @@index([isActive])
+}
+
+// Backend Action Queue - For non-guaranteed requests
+model BackendActionQueue {
+  id              String      @id @default(cuid())
+  sigmLogId       String
+  userId          String
+  serviceType     ServiceType
+  requestType     RequestType
+  actionRequired  String      // Human-readable action description
+  actionDetails   Json?       // Technical details for backend processing
+  priority        Int         @default(5) // 1 = highest, 10 = lowest
+  status          String      @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, FAILED
+  assignedTo      String?     // Staff/technician ID
+  scheduledFor    DateTime?   // When the action is scheduled
+  completedAt     DateTime?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([scheduledFor])
+}
