@@ -494,6 +494,85 @@ router.get('/intent-analytics', async (req: AuthReq, res, next) => {
   }
 });
 
+// Get all service connections (admin)
+router.get('/connections', async (req: AuthReq, res, next) => {
+  try {
+    const { status, serviceType, search, page = '1', limit = '20' } = req.query;
+
+    const where: any = {};
+    if (status && status !== 'all') where.status = status as string;
+    if (serviceType && serviceType !== 'all') where.serviceType = serviceType as any;
+    if (search) {
+      where.OR = [
+        { connectionNo: { contains: search as string, mode: 'insensitive' } },
+        { user: { name: { contains: search as string, mode: 'insensitive' } } },
+        { user: { phone: { contains: search as string } } },
+      ];
+    }
+
+    const [connections, total] = await Promise.all([
+      prisma.serviceConnection.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, phone: true } },
+          _count: { select: { bills: true, meterReadings: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (parseInt(page as string) - 1) * parseInt(limit as string),
+        take: parseInt(limit as string),
+      }),
+      prisma.serviceConnection.count({ where }),
+    ]);
+
+    res.json({
+      success: true,
+      data: connections,
+      pagination: {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit as string)),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update connection status
+router.put('/connections/:id/status', async (req: AuthReq, res, next) => {
+  try {
+    const { status, meterNo } = req.body;
+
+    const connection = await prisma.serviceConnection.update({
+      where: { id: req.params.id },
+      data: {
+        status: status as any,
+        meterNo: meterNo || undefined,
+        connectionDate: status === 'ACTIVE' ? new Date() : undefined,
+      },
+      include: { user: true }
+    });
+
+    // Notify user
+    await prisma.notification.create({
+      data: {
+        userId: connection.userId,
+        type: 'SERVICE_UPDATE',
+        title: 'Connection Status Updated',
+        titleHi: 'कनेक्शन की स्थिति अपडेट की गई',
+        message: `Your ${connection.serviceType} connection (${connection.connectionNo}) is now ${status}.`,
+        messageHi: `आपका ${connection.serviceType} कनेक्शन (${connection.connectionNo}) अब ${status} है।`,
+        data: { connectionId: connection.id, status },
+      },
+    });
+
+    res.json({ success: true, data: connection });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
 
 
