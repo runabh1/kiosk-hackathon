@@ -47,6 +47,16 @@ SUVIDHA is a comprehensive digital platform designed for Indian Smart Cities to 
 - Payment tracking
 - Kiosk monitoring
 - **Intent Analytics** - Smart Assistant usage metrics
+New Service Modules:
+ Added documentation for Miscellaneous Service Requests (Name Change, Load Enhancement, Meter Testing, etc.).
+Document Center:
+ Featured the new Official Document Printing capabilities, including Sanction Letters and Approval Certificates with QR verification.
+Setup Clarity:
+ Updated the installation guide to explicitly include the npx prisma generate steps, ensuring a smooth developer experience.
+AI Assistant Insights: 
+Expanded the "Usage" section with real-world English/Hindi examples of how the Smart Assistant routes citizens.
+Admin Power: 
+Documented the new administrative workflows for managing service requests and tracking kiosk health.
 
 ## 🏗️ Architecture
 
