@@ -7,6 +7,8 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     phone: string;
+    name: string;
+    email?: string;
     role: string;
     language: string;
   };
@@ -21,13 +23,13 @@ export const authenticate = async (
 ) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new ApiError('Authentication required', 401);
     }
 
     const token = authHeader.split(' ')[1];
-    
+
     const decoded = jwt.verify(token, JWT_SECRET) as {
       userId: string;
       phone: string;
@@ -51,6 +53,8 @@ export const authenticate = async (
     req.user = {
       id: session.user.id,
       phone: session.user.phone,
+      name: session.user.name,
+      email: session.user.email || undefined,
       role: session.user.role,
       language: session.user.language,
     };
@@ -70,11 +74,11 @@ export const requireRole = (...roles: string[]) => {
     if (!req.user) {
       return next(new ApiError('Authentication required', 401));
     }
-    
+
     if (!roles.includes(req.user.role)) {
       return next(new ApiError('Insufficient permissions', 403));
     }
-    
+
     next();
   };
 };

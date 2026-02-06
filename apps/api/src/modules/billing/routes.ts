@@ -316,4 +316,47 @@ router.get('/receipt/:id', async (req: AuthReq, res, next) => {
   }
 });
 
+// Download receipt as HTML (printable PDF)
+router.get('/receipt/:id/download', async (req: AuthReq, res, next) => {
+  try {
+    const { generateReceiptHTML, getReceiptData } = await import('./receipt-generator');
+
+    const receiptData = await getReceiptData(req.params.id, req.user!.id);
+
+    if (!receiptData) {
+      throw new ApiError('Receipt not found', 404);
+    }
+
+    const language = (req.query.lang as 'en' | 'hi') || req.user!.language as 'en' | 'hi' || 'en';
+    const html = generateReceiptHTML(receiptData, language);
+
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', `inline; filename="Receipt_${receiptData.receiptNo}.html"`);
+    res.send(html);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Download receipt as text
+router.get('/receipt/:id/text', async (req: AuthReq, res, next) => {
+  try {
+    const { generateReceiptText, getReceiptData } = await import('./receipt-generator');
+
+    const receiptData = await getReceiptData(req.params.id, req.user!.id);
+
+    if (!receiptData) {
+      throw new ApiError('Receipt not found', 404);
+    }
+
+    const text = generateReceiptText(receiptData);
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename="Receipt_${receiptData.receiptNo}.txt"`);
+    res.send(text);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

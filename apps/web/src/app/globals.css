@@ -103,3 +103,134 @@
     color: black;
   }
 }
+
+/* ============================================
+   Accessibility Styles - SUVIDHA Kiosk
+   ============================================ */
+
+/* Font size scaling using CSS custom property */
+:root {
+  --accessibility-font-scale: 1;
+}
+
+/* Apply font scale to body text */
+body {
+  font-size: calc(1rem * var(--accessibility-font-scale));
+}
+
+/* Scale headings proportionally */
+h1, h2, h3, h4, h5, h6 {
+  font-size: calc(1em * var(--accessibility-font-scale));
+}
+
+/* High Contrast Mode */
+.high-contrast {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --primary: 0 0% 0%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 20%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 95%;
+  --muted-foreground: 0 0% 20%;
+  --border: 0 0% 0%;
+  --ring: 0 0% 0%;
+}
+
+.high-contrast .kiosk-card {
+  border: 2px solid black !important;
+  box-shadow: none !important;
+}
+
+.high-contrast button {
+  border: 2px solid currentColor !important;
+}
+
+.high-contrast a {
+  text-decoration: underline !important;
+}
+
+.high-contrast input,
+.high-contrast textarea,
+.high-contrast select {
+  border: 2px solid black !important;
+}
+
+.high-contrast .bg-primary {
+  background-color: black !important;
+}
+
+.high-contrast .text-primary {
+  color: black !important;
+}
+
+.high-contrast .text-muted-foreground {
+  color: #333 !important;
+}
+
+/* Reduced Motion */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Focus indicators for keyboard navigation */
+*:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Ensure touch targets are large enough (WCAG 2.1) */
+button, 
+a, 
+input, 
+select, 
+textarea,
+[role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* Selection styling for visibility */
+::selection {
+  background-color: hsl(var(--ring));
+  color: white;
+}
+
+/* Link underlines for visibility */
+a:not(.no-underline):not([class*="btn"]):not([class*="Button"]) {
+  text-decoration-skip-ink: auto;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
