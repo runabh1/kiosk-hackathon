@@ -287,9 +287,11 @@ See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed deployment instruc
 
 ### 🚧 In Progress
 - [ ] SMS notifications
-- [ ] Payment gateway integration (Razorpay/PayU)
-- [ ] Document upload and management
 - [ ] Advanced reporting
+
+### ✅ Recently Added
+- [x] Payment gateway integration (Razorpay)
+- [x] Document upload and management (Grievance attachments)
 
 ### 📋 Planned
 - [ ] Voice input for Smart Assistant

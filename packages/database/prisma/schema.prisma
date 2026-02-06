@@ -152,10 +152,11 @@ model ServiceConnection {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bills        Bill[]
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bills         Bill[]
   meterReadings MeterReading[]
-  grievances   Grievance[]
+  grievances    Grievance[]
+  documents     Document[]
 
   @@index([userId])
   @@index([connectionNo])
@@ -329,22 +330,26 @@ model SystemAlert {
 // ============================================
 
 model Document {
-  id          String    @id @default(cuid())
-  userId      String
-  grievanceId String?
-  name        String
-  type        String    // "ID_PROOF", "ADDRESS_PROOF", "RECEIPT", "CERTIFICATE"
-  mimeType    String
-  url         String
-  size        Int
-  createdAt   DateTime  @default(now())
+  id            String    @id @default(cuid())
+  userId        String
+  grievanceId   String?
+  connectionId  String?
+  name          String
+  type          String    // "ID_PROOF", "ADDRESS_PROOF", "RECEIPT", "CERTIFICATE", "GRIEVANCE_ATTACHMENT"
+  mimeType      String
+  url           String
+  size          Int
+  createdAt     DateTime  @default(now())
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  grievance Grievance? @relation(fields: [grievanceId], references: [id])
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grievance  Grievance?          @relation(fields: [grievanceId], references: [id])
+  connection ServiceConnection?  @relation(fields: [connectionId], references: [id])
 
   @@index([userId])
   @@index([grievanceId])
+  @@index([connectionId])
 }
+
 
 // ============================================
 // KIOSK MANAGEMENT

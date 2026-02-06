@@ -277,4 +277,155 @@ router.delete('/:attachmentId', async (req: AuthReq, res, next) => {
     }
 });
 
+// Upload documents for connection application
+router.post('/connection/:connectionId', async (req: AuthReq, res, next) => {
+    try {
+        const { connectionId } = req.params;
+
+        // Verify connection belongs to user
+        const connection = await prisma.serviceConnection.findFirst({
+            where: {
+                id: connectionId,
+                userId: req.user!.id,
+            },
+        });
+
+        if (!connection) {
+            throw new ApiError('Connection not found', 404);
+        }
+
+        // Check existing documents count
+        const existingCount = await prisma.document.count({
+            where: { connectionId },
+        });
+
+        if (existingCount >= 10) {
+            throw new ApiError('Maximum 10 documents allowed per connection application', 400);
+        }
+
+        // Parse multipart form data
+        const { files, fields } = await parseMultipart(req);
+
+        if (files.length === 0) {
+            throw new ApiError('No files uploaded', 400);
+        }
+
+        const documentType = fields.documentType || 'IDENTITY_PROOF';
+        const uploadedFiles: any[] = [];
+        const uploadDir = await ensureUploadDir('connections');
+
+        for (const file of files) {
+            // Validate file
+            if (!isAllowedType(file.mimeType)) {
+                throw new ApiError(`File type ${file.mimeType} not allowed`, 400);
+            }
+
+            if (file.buffer.length > MAX_FILE_SIZE) {
+                throw new ApiError(`File ${file.originalName} exceeds 5MB limit`, 400);
+            }
+
+            // Generate secure filename and save
+            const secureFilename = generateSecureFilename(file.originalName);
+            const filePath = path.join(uploadDir, secureFilename);
+            await fs.writeFile(filePath, file.buffer);
+
+            // Create document record
+            const document = await prisma.document.create({
+                data: {
+                    userId: req.user!.id,
+                    connectionId,
+                    name: file.originalName,
+                    type: documentType,
+                    mimeType: file.mimeType,
+                    url: filePath,
+                    size: file.buffer.length,
+                },
+            });
+
+            uploadedFiles.push({
+                id: document.id,
+                filename: document.name,
+                size: document.size,
+                type: document.mimeType,
+                documentType: document.type,
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                files: uploadedFiles,
+                remainingSlots: 10 - existingCount - uploadedFiles.length,
+            },
+            message: `${uploadedFiles.length} document(s) uploaded successfully`,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Download attachment (force download)
+router.get('/:attachmentId/download', async (req: AuthReq, res, next) => {
+    try {
+        const attachment = await prisma.document.findFirst({
+            where: {
+                id: req.params.attachmentId,
+                userId: req.user!.id,
+            },
+        });
+
+        if (!attachment) {
+            throw new ApiError('Document not found', 404);
+        }
+
+        // Read file
+        const fileBuffer = await fs.readFile(attachment.url);
+
+        res.setHeader('Content-Type', attachment.mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${attachment.name}"`);
+        res.setHeader('Content-Length', fileBuffer.length.toString());
+        res.send(fileBuffer);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Get all documents for a connection
+router.get('/connection/:connectionId', async (req: AuthReq, res, next) => {
+    try {
+        const { connectionId } = req.params;
+
+        const connection = await prisma.serviceConnection.findFirst({
+            where: {
+                id: connectionId,
+                userId: req.user!.id,
+            },
+        });
+
+        if (!connection) {
+            throw new ApiError('Connection not found', 404);
+        }
+
+        const documents = await prisma.document.findMany({
+            where: { connectionId },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        res.json({
+            success: true,
+            data: documents.map(doc => ({
+                id: doc.id,
+                name: doc.name,
+                type: doc.type,
+                mimeType: doc.mimeType,
+                size: doc.size,
+                createdAt: doc.createdAt,
+            })),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;
+
