@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "turbo dev",
-    "build": "turbo build",
+    "build": "npm run db:generate && turbo run build --filter=@suvidha/api",
     "lint": "turbo lint",
     "test": "turbo test",
     "db:push": "cd packages/database && npx prisma db push",
