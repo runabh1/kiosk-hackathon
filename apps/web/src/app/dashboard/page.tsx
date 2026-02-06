@@ -53,8 +53,14 @@ export default function DashboardPage() {
       return;
     }
 
+    // Redirect admins/staff away from citizen dashboard
+    if (user?.role === "ADMIN" || user?.role === "STAFF") {
+      router.push("/admin");
+      return;
+    }
+
     fetchDashboardData();
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, router]);
 
   const fetchDashboardData = async () => {
     try {

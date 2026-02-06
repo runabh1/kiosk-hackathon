@@ -4,20 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "module": "CommonJS",
-    "moduleResolution": "node",
-    "strict": false,
-    "noImplicitAny": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "baseUrl": ".",
-    "paths": {
-      "@suvidha/database": [
-        "../../packages/database/src"
-      ],
-      "@suvidha/types": [
-        "../../packages/types/src"
-      ]
-    }
+    "moduleResolution": "node"
   },
   "include": [
     "src/**/*"

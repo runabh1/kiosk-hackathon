@@ -13,16 +13,7 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "composite": true,
-    "baseUrl": ".",
-    "paths": {
-      "@suvidha/database": [
-        "packages/database/src"
-      ],
-      "@suvidha/types": [
-        "packages/types/src"
-      ]
-    }
+    "composite": true
   },
   "exclude": [
     "node_modules"

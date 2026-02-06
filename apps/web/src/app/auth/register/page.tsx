@@ -17,13 +17,13 @@ export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { login } = useAuthStore();
-  
+
   const [step, setStep] = useState<"phone" | "otp" | "details">("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [mockOtp, setMockOtp] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -35,7 +35,7 @@ export default function RegisterPage() {
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!/^[6-9]\d{9}$/.test(phone)) {
       toast({
         title: "Invalid Phone",
@@ -44,18 +44,18 @@ export default function RegisterPage() {
       });
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
       });
-      
+
       const data = await res.json();
-      
+
       if (data.success) {
         setStep("otp");
         if (data.otp) setMockOtp(data.otp);
@@ -79,7 +79,7 @@ export default function RegisterPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (otp.length !== 6) {
       toast({
         title: "Invalid OTP",
@@ -88,14 +88,14 @@ export default function RegisterPage() {
       });
       return;
     }
-    
+
     // Move to details step (OTP verified during final registration)
     setStep("details");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || formData.name.length < 2) {
       toast({
         title: "Name Required",
@@ -104,9 +104,9 @@ export default function RegisterPage() {
       });
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/auth/register`, {
         method: "POST",
@@ -118,9 +118,9 @@ export default function RegisterPage() {
           language: i18n.language,
         }),
       });
-      
+
       const data = await res.json();
-      
+
       if (data.success) {
         login(data.data.user, data.data.tokens);
         toast({
@@ -128,7 +128,11 @@ export default function RegisterPage() {
           description: `Welcome, ${data.data.user.name}!`,
           variant: "success",
         });
-        router.push("/dashboard");
+        if (data.data.user.role === "ADMIN" || data.data.user.role === "STAFF") {
+          router.push("/admin");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         throw new Error(data.error || "Registration failed");
       }
@@ -168,15 +172,14 @@ export default function RegisterPage() {
               {step === "otp" && t("auth.enterOtp")}
               {step === "details" && "Enter your details"}
             </p>
-            
+
             {/* Step indicator */}
             <div className="flex justify-center gap-2 mt-4">
               {["phone", "otp", "details"].map((s, i) => (
                 <div
                   key={s}
-                  className={`w-3 h-3 rounded-full transition-colors ${
-                    step === s ? "bg-cta" : i < ["phone", "otp", "details"].indexOf(step) ? "bg-success" : "bg-slate-200"
-                  }`}
+                  className={`w-3 h-3 rounded-full transition-colors ${step === s ? "bg-cta" : i < ["phone", "otp", "details"].indexOf(step) ? "bg-success" : "bg-slate-200"
+                    }`}
                 />
               ))}
             </div>
@@ -244,7 +247,7 @@ export default function RegisterPage() {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-base">{t("auth.email")}</Label>
                 <Input
@@ -255,7 +258,7 @@ export default function RegisterPage() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="address" className="text-base">Address</Label>
                 <Input
@@ -265,7 +268,7 @@ export default function RegisterPage() {
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="city" className="text-base">City</Label>
@@ -287,7 +290,7 @@ export default function RegisterPage() {
                   />
                 </div>
               </div>
-              
+
               <Button type="submit" size="xl" variant="cta" className="w-full mt-6" disabled={loading || !formData.name}>
                 {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <User className="w-5 h-5 mr-2" />}
                 {t("common.submit")}

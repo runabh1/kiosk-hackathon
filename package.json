@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "turbo dev",
-    "build": "npm run db:generate && turbo run build --filter=@suvidha/api",
+    "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
     "db:push": "cd packages/database && npx prisma db push",
@@ -23,12 +23,7 @@
   "devDependencies": {
     "turbo": "^2.0.0",
     "typescript": "^5.3.0",
-    "tsx": "^4.7.0",
-    "@types/node": "^20.10.0",
-    "@types/express": "^4.17.21",
-    "@types/cors": "^2.8.17",
-    "@types/jsonwebtoken": "^9.0.5",
-    "@types/bcryptjs": "^2.4.6"
+    "tsx": "^4.7.0"
   },
   "packageManager": "npm@10.0.0",
   "engines": {

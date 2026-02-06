@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -16,17 +16,24 @@ export default function LoginPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { toast } = useToast();
-  const { login } = useAuthStore();
-  
+  const { login, isAuthenticated, user } = useAuthStore();
+
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [mockOtp, setMockOtp] = useState<string | null>(null);
 
+  // No auto-redirect here to allow users to switch accounts/roles easily
+  // while testing. Only redirect after explicit login or if manually navigating.
+  useEffect(() => {
+    // Optional: Only redirect if we're sure we want to block the login page
+    // For now, keeping it open for better UX during role-switching
+  }, []);
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!/^[6-9]\d{9}$/.test(phone)) {
       toast({
         title: "Invalid Phone",
@@ -35,18 +42,18 @@ export default function LoginPage() {
       });
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
       });
-      
+
       const data = await res.json();
-      
+
       if (data.success) {
         setStep("otp");
         // For development - show mock OTP
@@ -73,7 +80,7 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (otp.length !== 6) {
       toast({
         title: "Invalid OTP",
@@ -82,26 +89,33 @@ export default function LoginPage() {
       });
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, otp }),
       });
-      
+
       const data = await res.json();
-      
+
       if (data.success) {
-        login(data.data.user, data.data.tokens);
+        const user = data.data.user;
+        login(user, data.data.tokens);
         toast({
           title: "Welcome!",
-          description: `Logged in as ${data.data.user.name}`,
+          description: `Logged in as ${user.name}`,
           variant: "success",
         });
-        router.push("/dashboard");
+
+        // Redirect based on role - Keep it simple
+        if (user.role === "ADMIN" || user.role === "STAFF") {
+          router.push("/admin");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         throw new Error(data.error || "Login failed");
       }
