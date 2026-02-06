@@ -96,7 +96,14 @@ export default function NewConnectionPage() {
         setError("");
 
         try {
-            const token = useAuthStore.getState().tokens?.accessToken;
+            const state = useAuthStore.getState();
+            const token = state.tokens?.accessToken;
+
+            if (!token) {
+                setError("Your session has expired. Please login again.");
+                router.push("/auth/login");
+                return;
+            }
 
             const body: any = {
                 serviceType: selectedService,

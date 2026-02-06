@@ -63,8 +63,9 @@ const PRIORITIES = [
 ];
 
 export default function NewGrievancePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
+  const isHindi = i18n.language === "hi";
   const { toast } = useToast();
   const { isAuthenticated, tokens } = useAuthStore();
 
@@ -110,15 +111,33 @@ export default function NewGrievancePage() {
     setLoading(true);
 
     try {
+      const state = useAuthStore.getState();
+      const token = state.tokens?.accessToken;
+
+      if (!token) {
+        toast({
+          title: "Session Expired",
+          description: "Please login again",
+          variant: "destructive",
+        });
+        router.push("/auth/login");
+        return;
+      }
+
+      const body = {
+        ...formData,
+        connectionId: formData.connectionNumber || undefined,
+      };
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/grievances`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${tokens?.accessToken}`,
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(body),
         }
       );
 
@@ -201,152 +220,154 @@ export default function NewGrievancePage() {
         </div>
       </header>
 
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto p-6 space-y-6">
-        {/* Service Type */}
-        <div>
-          <Label className="text-base mb-3 block">Select Service *</Label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {serviceTypes.map((svc) => (
-              <button
-                key={svc.id}
-                type="button"
-                onClick={() => setFormData({ ...formData, serviceType: svc.id, category: "" })}
-                className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all cursor-pointer ${formData.serviceType === svc.id
-                  ? "border-cta bg-cta/5"
-                  : "border-slate-200 hover:border-cta/50"
-                  }`}
-              >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${svc.color}`}>
-                  <svc.icon className="w-5 h-5" />
-                </div>
-                <span className="text-sm font-medium">{svc.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Category */}
-        {formData.serviceType && (
+      <div className="max-w-2xl mx-auto p-6">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Service Type */}
           <div>
-            <Label className="text-base mb-3 block">{t("grievance.category")} *</Label>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES[formData.serviceType as keyof typeof CATEGORIES]?.map((cat) => (
+            <Label className="text-base mb-3 block">Select Service *</Label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {serviceTypes.map((svc) => (
                 <button
-                  key={cat}
+                  key={svc.id}
                   type="button"
-                  onClick={() => setFormData({ ...formData, category: cat })}
-                  className={`px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer ${formData.category === cat
-                    ? "bg-cta text-white"
-                    : "bg-white border border-slate-200 hover:border-cta"
+                  onClick={() => setFormData({ ...formData, serviceType: svc.id, category: "" })}
+                  className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all cursor-pointer ${formData.serviceType === svc.id
+                    ? "border-cta bg-cta/5"
+                    : "border-slate-200 hover:border-cta/50"
                     }`}
                 >
-                  {cat}
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${svc.color}`}>
+                    <svc.icon className="w-5 h-5" />
+                  </div>
+                  <span className="text-sm font-medium">{svc.name}</span>
                 </button>
               ))}
             </div>
           </div>
-        )}
 
-        {/* Priority */}
-        <div>
-          <Label className="text-base mb-3 block">{t("grievance.priority")}</Label>
-          <div className="flex flex-wrap gap-2">
-            {PRIORITIES.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setFormData({ ...formData, priority: p.id })}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${formData.priority === p.id
-                  ? `${p.color} ring-2 ring-offset-2 ring-cta/30`
-                  : "bg-white border border-slate-200 hover:border-cta"
-                  }`}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Subject */}
-        <div>
-          <Label htmlFor="subject" className="text-base">
-            {t("grievance.subject")} *
-          </Label>
-          <Input
-            id="subject"
-            placeholder="Brief summary of your issue"
-            value={formData.subject}
-            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-            className="mt-2"
-            required
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <Label htmlFor="description" className="text-base">
-            {t("grievance.description")} *
-          </Label>
-          <textarea
-            id="description"
-            placeholder="Describe your issue in detail (minimum 10 characters)..."
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="mt-2 w-full h-32 px-4 py-3 rounded-lg border-2 border-slate-200 focus:border-cta focus:ring-2 focus:ring-cta/20 outline-none transition-colors resize-none"
-            required
-            minLength={10}
-          />
-          <p className={`text-xs mt-1 ${formData.description.length < 10 ? "text-destructive" : "text-muted-foreground"}`}>
-            {formData.description.length}/10 characters minimum
-          </p>
-        </div>
-
-        {/* Connection Number (Optional) */}
-        <div>
-          <Label htmlFor="connectionNumber" className="text-base">
-            Connection Number (Optional)
-          </Label>
-          <Input
-            id="connectionNumber"
-            placeholder="Enter if applicable"
-            value={formData.connectionNumber}
-            onChange={(e) => setFormData({ ...formData, connectionNumber: e.target.value })}
-            className="mt-2"
-          />
-        </div>
-
-        {/* Address */}
-        <div>
-          <Label htmlFor="address" className="text-base">
-            Location/Address
-          </Label>
-          <Input
-            id="address"
-            placeholder="Where is the issue located?"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            className="mt-2"
-          />
-        </div>
-
-        {/* Submit */}
-        <Button
-          type="submit"
-          variant="cta"
-          size="xl"
-          className="w-full"
-          disabled={loading || !formData.serviceType || !formData.category || !formData.subject || formData.description.length < 10}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin mr-2" />
-              Submitting...
-            </>
-          ) : (
-            t("grievance.submit")
+          {/* Category */}
+          {formData.serviceType && (
+            <div>
+              <Label className="text-base mb-3 block">{t("grievance.category")} *</Label>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES[formData.serviceType as keyof typeof CATEGORIES]?.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, category: cat })}
+                    className={`px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer ${formData.category === cat
+                      ? "bg-cta text-white"
+                      : "bg-white border border-slate-200 hover:border-cta"
+                      }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
-        </Button>
-      </form>
+
+          {/* Priority */}
+          <div>
+            <Label className="text-base mb-3 block">{t("grievance.priority")}</Label>
+            <div className="flex flex-wrap gap-2">
+              {PRIORITIES.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, priority: p.id })}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${formData.priority === p.id
+                    ? `${p.color} ring-2 ring-offset-2 ring-cta/30`
+                    : "bg-white border border-slate-200 hover:border-cta"
+                    }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Subject */}
+          <div>
+            <Label htmlFor="subject" className="text-base">
+              {t("grievance.subject")} *
+            </Label>
+            <Input
+              id="subject"
+              placeholder="Brief summary of your issue"
+              value={formData.subject}
+              onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+              className="mt-2"
+              required
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <Label htmlFor="description" className="text-base">
+              {t("grievance.description")} *
+            </Label>
+            <textarea
+              id="description"
+              placeholder="Describe your issue in detail (minimum 10 characters)..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="mt-2 w-full h-32 px-4 py-3 rounded-lg border-2 border-slate-200 focus:border-cta focus:ring-2 focus:ring-cta/20 outline-none transition-colors resize-none"
+              required
+              minLength={10}
+            />
+            <p className={`text-xs mt-1 ${formData.description.length < 10 ? "text-destructive" : "text-muted-foreground"}`}>
+              {formData.description.length}/10 characters minimum
+            </p>
+          </div>
+
+          {/* Connection Number (Optional) */}
+          <div>
+            <Label htmlFor="connectionNumber" className="text-base">
+              Connection Number (Optional)
+            </Label>
+            <Input
+              id="connectionNumber"
+              placeholder="Enter if applicable"
+              value={formData.connectionNumber}
+              onChange={(e) => setFormData({ ...formData, connectionNumber: e.target.value })}
+              className="mt-2"
+            />
+          </div>
+
+          {/* Address */}
+          <div>
+            <Label htmlFor="address" className="text-base">
+              Location/Address
+            </Label>
+            <Input
+              id="address"
+              placeholder="Where is the issue located?"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="mt-2"
+            />
+          </div>
+
+          {/* Submit */}
+          <Button
+            type="submit"
+            variant="cta"
+            size="xl"
+            className="w-full"
+            disabled={loading || !formData.serviceType || !formData.category || !formData.subject || formData.description.length < 10}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                {isHindi ? "जमा किया जा रहा है..." : "Submitting..."}
+              </>
+            ) : (
+              t("grievance.submit")
+            )}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
