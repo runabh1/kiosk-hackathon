@@ -13,17 +13,17 @@ router.use(authenticate);
 router.get('/bills', async (req: AuthReq, res, next) => {
   try {
     const { serviceType, status, page = '1', limit = '10' } = req.query;
-    
+
     const where: any = { userId: req.user!.id };
-    
+
     if (serviceType) {
       where.connection = { serviceType: serviceType as string };
     }
-    
+
     if (status) {
       where.status = status as string;
     }
-    
+
     const [bills, total] = await Promise.all([
       prisma.bill.findMany({
         where,
@@ -34,7 +34,7 @@ router.get('/bills', async (req: AuthReq, res, next) => {
       }),
       prisma.bill.count({ where }),
     ]);
-    
+
     res.json({
       success: true,
       data: bills.map((bill) => ({
@@ -66,11 +66,11 @@ router.get('/bills/:id', async (req: AuthReq, res, next) => {
         payments: { orderBy: { createdAt: 'desc' } },
       },
     });
-    
+
     if (!bill) {
       throw new ApiError('Bill not found', 404);
     }
-    
+
     res.json({
       success: true,
       data: bill,
@@ -91,7 +91,7 @@ const paymentSchema = z.object({
 router.post('/pay', async (req: AuthReq, res, next) => {
   try {
     const { billId, amount, method } = paymentSchema.parse(req.body);
-    
+
     // Find bill
     const bill = await prisma.bill.findFirst({
       where: {
@@ -99,25 +99,25 @@ router.post('/pay', async (req: AuthReq, res, next) => {
         userId: req.user!.id,
       },
     });
-    
+
     if (!bill) {
       throw new ApiError('Bill not found', 404);
     }
-    
+
     if (bill.status === 'PAID') {
       throw new ApiError('Bill already paid', 400);
     }
-    
+
     // Verify amount
     const remainingAmount = bill.totalAmount - bill.amountPaid;
     if (amount > remainingAmount) {
       throw new ApiError(`Amount exceeds remaining balance of ${remainingAmount}`, 400);
     }
-    
+
     // Generate mock transaction ID
     const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
     const receiptNo = `RCP${Date.now()}`;
-    
+
     // Create payment record (MOCK - instantly successful)
     const payment = await prisma.payment.create({
       data: {
@@ -132,11 +132,11 @@ router.post('/pay', async (req: AuthReq, res, next) => {
         kioskId: req.headers['x-kiosk-id'] as string,
       },
     });
-    
+
     // Update bill
     const newAmountPaid = bill.amountPaid + amount;
     const newStatus = newAmountPaid >= bill.totalAmount ? 'PAID' : 'PARTIAL';
-    
+
     await prisma.bill.update({
       where: { id: billId },
       data: {
@@ -144,7 +144,7 @@ router.post('/pay', async (req: AuthReq, res, next) => {
         status: newStatus,
       },
     });
-    
+
     // Create notification
     await prisma.notification.create({
       data: {
@@ -157,7 +157,7 @@ router.post('/pay', async (req: AuthReq, res, next) => {
         data: { paymentId: payment.id, receiptNo },
       },
     });
-    
+
     res.json({
       success: true,
       data: {
@@ -189,11 +189,11 @@ router.get('/receipts/:id', async (req: AuthReq, res, next) => {
         user: true,
       },
     });
-    
+
     if (!payment) {
       throw new ApiError('Receipt not found', 404);
     }
-    
+
     // Generate receipt data (in production, this would generate PDF)
     const receipt = {
       receiptNo: payment.receiptNo,
@@ -215,7 +215,7 @@ router.get('/receipts/:id', async (req: AuthReq, res, next) => {
         totalAmount: payment.bill.totalAmount,
       },
     };
-    
+
     res.json({
       success: true,
       data: receipt,
@@ -229,7 +229,7 @@ router.get('/receipts/:id', async (req: AuthReq, res, next) => {
 router.get('/payments', async (req: AuthReq, res, next) => {
   try {
     const { page = '1', limit = '10' } = req.query;
-    
+
     const [payments, total] = await Promise.all([
       prisma.payment.findMany({
         where: { userId: req.user!.id },
@@ -244,15 +244,71 @@ router.get('/payments', async (req: AuthReq, res, next) => {
       }),
       prisma.payment.count({ where: { userId: req.user!.id } }),
     ]);
-    
+
     res.json({
       success: true,
-      data: payments,
+      data: payments.map(p => ({
+        ...p,
+        paymentMethod: p.method,
+        bill: {
+          ...p.bill,
+          serviceType: p.bill.connection.serviceType,
+        },
+      })),
       pagination: {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
         total,
         totalPages: Math.ceil(total / parseInt(limit as string)),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get receipt by payment ID (alternate route for frontend)
+router.get('/receipt/:id', async (req: AuthReq, res, next) => {
+  try {
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user!.id,
+        status: 'SUCCESS',
+      },
+      include: {
+        bill: {
+          include: { connection: true },
+        },
+        user: true,
+      },
+    });
+
+    if (!payment) {
+      throw new ApiError('Receipt not found', 404);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: payment.id,
+        amount: payment.amount,
+        transactionId: payment.transactionId,
+        receiptNo: payment.receiptNo,
+        paymentMethod: payment.method,
+        paidAt: payment.paidAt,
+        status: payment.status,
+        bill: {
+          billNo: payment.bill.billNo,
+          periodFrom: payment.bill.periodFrom,
+          periodTo: payment.bill.periodTo,
+          connection: {
+            serviceType: payment.bill.connection.serviceType,
+            connectionNo: payment.bill.connection.connectionNo,
+            address: payment.bill.connection.address,
+            city: payment.bill.connection.city,
+          },
+        },
       },
     });
   } catch (error) {

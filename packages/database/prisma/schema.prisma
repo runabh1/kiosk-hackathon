@@ -377,3 +377,27 @@ model KioskLog {
   @@index([kioskId])
   @@index([createdAt])
 }
+
+// ============================================
+// SMART ASSISTANT ANALYTICS
+// ============================================
+
+model IntentLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  kioskId     String?
+  input       String   // Original user input
+  service     String?  // Detected service type
+  action      String?  // Detected action type
+  confidence  Float    // 0-1 confidence score
+  route       String?  // Suggested route
+  stepsSaved  Int      @default(0) // Navigation steps saved
+  wasConfirmed Boolean @default(false) // User confirmed the intent
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([service])
+  @@index([action])
+  @@index([confidence])
+}
+

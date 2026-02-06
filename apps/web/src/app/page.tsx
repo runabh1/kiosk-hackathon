@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
-import { 
-  Zap, 
-  Flame, 
-  Droplets, 
+import {
+  Zap,
+  Flame,
+  Droplets,
   Building2,
   FileText,
   MessageSquare,
   Bell,
-  HelpCircle
+  HelpCircle,
 } from "lucide-react";
 import { LanguageToggle } from "@/components/kiosk/language-toggle";
 import { ServiceCard } from "@/components/kiosk/service-card";
 import { AlertBanner } from "@/components/kiosk/alert-banner";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -117,7 +118,7 @@ export default function HomePage() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-8 py-10">
         {/* Welcome Section */}
-        <section className="text-center mb-12">
+        <section className="text-center mb-8">
           <h2 className="font-heading text-3xl text-primary mb-3">
             {t("home.welcome")}
           </h2>

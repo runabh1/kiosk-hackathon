@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -6,7 +7,7 @@ export interface AppError extends Error {
 }
 
 export const errorHandler = (
-  err: AppError,
+  err: AppError | ZodError,
   req: Request,
   res: Response,
   next: NextFunction
@@ -14,8 +15,23 @@ export const errorHandler = (
   console.error('Error:', err.message);
   console.error('Stack:', err.stack);
 
-  const statusCode = err.statusCode || 500;
-  const message = err.isOperational ? err.message : 'Internal server error';
+  // Handle Zod validation errors
+  if (err instanceof ZodError) {
+    const errors = err.errors.map(e => ({
+      field: e.path.join('.'),
+      message: e.message,
+    }));
+
+    return res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      details: errors,
+      message: errors.map(e => `${e.field}: ${e.message}`).join(', '),
+    });
+  }
+
+  const statusCode = (err as AppError).statusCode || 500;
+  const message = (err as AppError).isOperational ? err.message : 'Internal server error';
 
   res.status(statusCode).json({
     success: false,
@@ -35,3 +51,4 @@ export class ApiError extends Error {
     Error.captureStackTrace(this, this.constructor);
   }
 }
+

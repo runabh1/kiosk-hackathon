@@ -13,11 +13,17 @@
     "db:push": "cd packages/database && npx prisma db push",
     "db:migrate": "cd packages/database && npx prisma migrate dev",
     "db:studio": "cd packages/database && npx prisma studio",
-    "db:generate": "cd packages/database && npx prisma generate"
+    "db:generate": "cd packages/database && npx prisma generate",
+    "db:seed": "cd packages/database && npx tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "schema": "packages/database/prisma/schema.prisma",
+    "seed": "npx tsx packages/database/prisma/seed.ts"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0"
   },
   "packageManager": "npm@10.0.0",
   "engines": {

@@ -12,12 +12,12 @@ router.use(authenticate);
 router.get('/', async (req: AuthReq, res, next) => {
   try {
     const { serviceType, status, page = '1', limit = '10' } = req.query;
-    
+
     const where: any = { userId: req.user!.id };
-    
+
     if (serviceType) where.serviceType = serviceType as string;
     if (status) where.status = status as string;
-    
+
     const [grievances, total] = await Promise.all([
       prisma.grievance.findMany({
         where,
@@ -30,7 +30,7 @@ router.get('/', async (req: AuthReq, res, next) => {
       }),
       prisma.grievance.count({ where }),
     ]);
-    
+
     res.json({
       success: true,
       data: grievances,
@@ -60,11 +60,11 @@ router.get('/:id', async (req: AuthReq, res, next) => {
         attachments: true,
       },
     });
-    
+
     if (!grievance) {
       throw new ApiError('Grievance not found', 404);
     }
-    
+
     res.json({
       success: true,
       data: grievance,
@@ -80,7 +80,7 @@ const createGrievanceSchema = z.object({
   connectionId: z.string().optional(),
   category: z.string().min(2),
   subject: z.string().min(5).max(200),
-  description: z.string().min(20).max(2000),
+  description: z.string().min(10).max(2000), // Reduced minimum for better UX
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
 });
 
@@ -88,7 +88,7 @@ const createGrievanceSchema = z.object({
 router.post('/', async (req: AuthReq, res, next) => {
   try {
     const data = createGrievanceSchema.parse(req.body);
-    
+
     // Validate connection if provided
     if (data.connectionId) {
       const connection = await prisma.serviceConnection.findFirst({
@@ -97,15 +97,15 @@ router.post('/', async (req: AuthReq, res, next) => {
           userId: req.user!.id,
         },
       });
-      
+
       if (!connection) {
         throw new ApiError('Connection not found', 404);
       }
     }
-    
+
     // Generate ticket number
     const ticketNo = `GRV${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-    
+
     // Create grievance
     const grievance = await prisma.grievance.create({
       data: {
@@ -115,7 +115,7 @@ router.post('/', async (req: AuthReq, res, next) => {
         priority: data.priority || 'MEDIUM',
       },
     });
-    
+
     // Create initial timeline entry
     await prisma.grievanceTimeline.create({
       data: {
@@ -125,7 +125,7 @@ router.post('/', async (req: AuthReq, res, next) => {
         actionBy: 'SYSTEM',
       },
     });
-    
+
     // Create notification
     await prisma.notification.create({
       data: {
@@ -138,7 +138,7 @@ router.post('/', async (req: AuthReq, res, next) => {
         data: { grievanceId: grievance.id, ticketNo },
       },
     });
-    
+
     res.status(201).json({
       success: true,
       data: grievance,
@@ -159,15 +159,15 @@ const updateGrievanceSchema = z.object({
 router.put('/:id', requireRole('ADMIN', 'STAFF'), async (req: AuthReq, res, next) => {
   try {
     const { status, resolution, comment } = updateGrievanceSchema.parse(req.body);
-    
+
     const grievance = await prisma.grievance.findUnique({
       where: { id: req.params.id },
     });
-    
+
     if (!grievance) {
       throw new ApiError('Grievance not found', 404);
     }
-    
+
     // Update grievance
     const updated = await prisma.grievance.update({
       where: { id: req.params.id },
@@ -178,7 +178,7 @@ router.put('/:id', requireRole('ADMIN', 'STAFF'), async (req: AuthReq, res, next
         assignedTo: req.user!.id,
       },
     });
-    
+
     // Add timeline entry
     await prisma.grievanceTimeline.create({
       data: {
@@ -188,7 +188,7 @@ router.put('/:id', requireRole('ADMIN', 'STAFF'), async (req: AuthReq, res, next
         actionBy: req.user!.id,
       },
     });
-    
+
     // Notify user
     await prisma.notification.create({
       data: {
@@ -201,7 +201,7 @@ router.put('/:id', requireRole('ADMIN', 'STAFF'), async (req: AuthReq, res, next
         data: { grievanceId: grievance.id, status },
       },
     });
-    
+
     res.json({
       success: true,
       data: updated,
@@ -215,18 +215,18 @@ router.put('/:id', requireRole('ADMIN', 'STAFF'), async (req: AuthReq, res, next
 router.get('/categories/:serviceType', async (req, res, next) => {
   try {
     const { serviceType } = req.params;
-    
+
     const categories: Record<string, string[]> = {
       ELECTRICITY: ['Billing Issue', 'Power Outage', 'Meter Problem', 'New Connection', 'Load Enhancement', 'Voltage Fluctuation', 'Other'],
       GAS: ['Billing Issue', 'Gas Leakage', 'Meter Problem', 'New Connection', 'Cylinder Delivery', 'Pressure Issue', 'Other'],
       WATER: ['Billing Issue', 'No Water Supply', 'Water Quality', 'Pipe Leakage', 'New Connection', 'Meter Problem', 'Other'],
       MUNICIPAL: ['Waste Collection', 'Road Damage', 'Streetlight Issue', 'Drainage Block', 'Property Tax', 'Birth/Death Certificate', 'Other'],
     };
-    
+
     if (!categories[serviceType]) {
       throw new ApiError('Invalid service type', 400);
     }
-    
+
     res.json({
       success: true,
       data: categories[serviceType],

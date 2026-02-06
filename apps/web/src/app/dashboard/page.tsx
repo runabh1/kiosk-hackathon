@@ -16,6 +16,8 @@ import {
   User,
   ChevronRight,
   AlertCircle,
+  CreditCard,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LanguageToggle } from "@/components/kiosk/language-toggle";
@@ -40,7 +42,7 @@ export default function DashboardPage() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
-  
+
   const [pendingBills, setPendingBills] = useState<Bill[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +52,7 @@ export default function DashboardPage() {
       router.push("/auth/login");
       return;
     }
-    
+
     fetchDashboardData();
   }, [isAuthenticated, router]);
 
@@ -58,7 +60,7 @@ export default function DashboardPage() {
     try {
       const token = useAuthStore.getState().tokens?.accessToken;
       const headers = { Authorization: `Bearer ${token}` };
-      
+
       // Fetch pending bills
       const billsRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/billing/bills?status=UNPAID`,
@@ -68,7 +70,7 @@ export default function DashboardPage() {
         const data = await billsRes.json();
         setPendingBills(data.data?.slice(0, 3) || []);
       }
-      
+
       // Fetch connections
       const connRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/connections`,
@@ -99,6 +101,7 @@ export default function DashboardPage() {
 
   const quickLinks = [
     { id: "bills", name: t("actions.payBills"), icon: FileText, href: "/bills", count: pendingBills.length },
+    { id: "payments", name: "Payment History", icon: CreditCard, href: "/payments" },
     { id: "grievances", name: t("actions.grievances"), icon: MessageSquare, href: "/grievances" },
     { id: "notifications", name: t("actions.notifications"), icon: Bell, href: "/notifications" },
     { id: "profile", name: "My Profile", icon: User, href: "/profile" },
@@ -116,6 +119,17 @@ export default function DashboardPage() {
             <h1 className="font-heading text-xl font-bold">{user?.name}</h1>
           </div>
           <div className="flex items-center gap-3">
+            {(user?.role === "ADMIN" || user?.role === "STAFF") && (
+              <Link href="/admin">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-white hover:bg-white/10"
+                >
+                  Admin Panel
+                </Button>
+              </Link>
+            )}
             <LanguageToggle />
             <Button
               variant="ghost"
@@ -151,6 +165,44 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Smart Assistant - Prominent Feature */}
+        <section className="mb-8">
+          <Link href="/assistant">
+            <div className="relative overflow-hidden bg-gradient-to-r from-cta via-cta to-primary rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer group">
+              {/* Animated background effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                    <Sparkles className="w-8 h-8 text-white animate-pulse" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-xl font-bold text-white">
+                      {i18n.language === "hi"
+                        ? "बताइए आप क्या करना चाहते हैं"
+                        : "Tell me what you want to do"}
+                    </h3>
+                    <p className="text-white/80 text-sm">
+                      {i18n.language === "hi"
+                        ? "मेनू छोड़ें • बस कहें • हम आपको ले जाएंगे"
+                        : "Skip menus • Just say it • We'll take you there"}
+                    </p>
+                  </div>
+                </div>
+                <div className="hidden md:flex items-center gap-2 text-white/70 group-hover:text-white transition-colors">
+                  <span className="text-sm font-medium">
+                    {i18n.language === "hi" ? "अभी आज़माएं" : "Try Now"}
+                  </span>
+                  <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </section>
+
         {/* Quick Links */}
         <section className="mb-8">
           <h2 className="font-heading text-lg text-primary mb-4 flex items-center gap-2">
@@ -182,7 +234,7 @@ export default function DashboardPage() {
             <span className="w-1 h-5 bg-cta rounded-full"></span>
             My Service Connections
           </h2>
-          
+
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
           ) : connections.length > 0 ? (
@@ -205,15 +257,24 @@ export default function DashboardPage() {
                         Connection: {conn.connectionNumber}
                       </p>
                     </div>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      conn.status === "ACTIVE" ? "bg-success/10 text-success" : "bg-slate-100 text-slate-600"
-                    }`}>
+                    <span className={`px-2 py-1 text-xs rounded-full ${conn.status === "ACTIVE" ? "bg-success/10 text-success" : "bg-slate-100 text-slate-600"
+                      }`}>
                       {conn.status}
                     </span>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </Link>
                 );
               })}
+              {/* Add New Connection Button */}
+              <Link
+                href="/connections/new"
+                className="kiosk-card flex items-center justify-center gap-3 py-4 border-2 border-dashed border-slate-200 hover:border-cta hover:bg-cta/5 transition-colors"
+              >
+                <div className="w-10 h-10 bg-cta/10 rounded-full flex items-center justify-center">
+                  <span className="text-cta text-2xl font-light">+</span>
+                </div>
+                <span className="font-medium text-primary">Apply for New Connection</span>
+              </Link>
             </div>
           ) : (
             <div className="text-center py-8">

@@ -6,6 +6,10 @@ interface User {
   phone: string;
   name: string;
   email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   role: string;
   language: string;
   isVerified: boolean;

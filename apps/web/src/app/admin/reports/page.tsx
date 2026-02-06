@@ -1,0 +1,409 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
+import {
+    LayoutDashboard,
+    Users,
+    CreditCard,
+    MessageSquare,
+    Bell,
+    BarChart3,
+    Monitor,
+    LogOut,
+    Building2,
+    Zap,
+    Flame,
+    Droplets,
+    Download,
+    Calendar,
+    TrendingUp,
+    PieChart,
+    FileText,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/lib/store/auth";
+
+interface ReportData {
+    period: string;
+    revenue: number;
+    transactions: number;
+    users: number;
+    grievances: number;
+    serviceBreakdown: Record<string, { count: number; revenue: number }>;
+}
+
+const navItems = [
+    { id: "dashboard", name: "Dashboard", icon: LayoutDashboard, href: "/admin" },
+    { id: "users", name: "Users", icon: Users, href: "/admin/users" },
+    { id: "payments", name: "Payments", icon: CreditCard, href: "/admin/payments" },
+    { id: "grievances", name: "Grievances", icon: MessageSquare, href: "/admin/grievances" },
+    { id: "reports", name: "Reports", icon: BarChart3, href: "/admin/reports" },
+    { id: "kiosks", name: "Kiosks", icon: Monitor, href: "/admin/kiosks" },
+    { id: "alerts", name: "Alerts", icon: Bell, href: "/admin/alerts" },
+];
+
+const serviceIcons: Record<string, any> = {
+    ELECTRICITY: { icon: Zap, color: "text-electricity", bg: "bg-electricity-light" },
+    GAS: { icon: Flame, color: "text-gas", bg: "bg-gas-light" },
+    WATER: { icon: Droplets, color: "text-water", bg: "bg-water-light" },
+    MUNICIPAL: { icon: Building2, color: "text-municipal", bg: "bg-municipal-light" },
+};
+
+export default function AdminReportsPage() {
+    const { i18n } = useTranslation();
+    const router = useRouter();
+    const isHindi = i18n.language === "hi";
+
+    const { user, isAuthenticated, logout } = useAuthStore();
+
+    const [loading, setLoading] = useState(true);
+    const [reportType, setReportType] = useState("daily");
+    const [dateRange, setDateRange] = useState({ from: "", to: "" });
+    const [reportData, setReportData] = useState<ReportData | null>(null);
+
+    useEffect(() => {
+        if (!isAuthenticated || (user?.role !== "ADMIN" && user?.role !== "STAFF")) {
+            router.push("/auth/login");
+            return;
+        }
+        generateReport();
+    }, [isAuthenticated, user, router, reportType]);
+
+    const generateReport = async () => {
+        setLoading(true);
+        try {
+            const token = useAuthStore.getState().tokens?.accessToken;
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/admin/reports?type=${reportType}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (res.ok) {
+                const data = await res.json();
+                setReportData(data.data);
+            } else {
+                // Mock data
+                const multiplier = reportType === "daily" ? 1 : reportType === "weekly" ? 7 : 30;
+                setReportData({
+                    period: reportType === "daily"
+                        ? new Date().toLocaleDateString()
+                        : reportType === "weekly"
+                            ? "This Week"
+                            : "This Month",
+                    revenue: 234500 * multiplier,
+                    transactions: 156 * multiplier,
+                    users: 24 * multiplier,
+                    grievances: 12 * multiplier,
+                    serviceBreakdown: {
+                        ELECTRICITY: { count: 67 * multiplier, revenue: 156000 * multiplier },
+                        GAS: { count: 23 * multiplier, revenue: 34500 * multiplier },
+                        WATER: { count: 45 * multiplier, revenue: 28000 * multiplier },
+                        MUNICIPAL: { count: 21 * multiplier, revenue: 16000 * multiplier },
+                    },
+                });
+            }
+        } catch (err) {
+            console.error("Failed to fetch report:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const downloadReport = () => {
+        if (!reportData) return;
+
+        const reportText = `
+SUVIDHA KIOSK REPORT
+====================
+Period: ${reportData.period}
+Report Type: ${reportType.toUpperCase()}
+Generated: ${new Date().toLocaleString()}
+
+SUMMARY
+-------
+Total Revenue: ₹${reportData.revenue.toLocaleString()}
+Total Transactions: ${reportData.transactions}
+New Users: ${reportData.users}
+Grievances Filed: ${reportData.grievances}
+
+SERVICE BREAKDOWN
+-----------------
+${Object.entries(reportData.serviceBreakdown)
+                .map(([service, data]) => `${service}: ${data.count} transactions, ₹${data.revenue.toLocaleString()}`)
+                .join("\n")}
+
+====================
+Generated by SUVIDHA Admin Dashboard
+    `;
+
+        const blob = new Blob([reportText], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `SUVIDHA_Report_${reportType}_${new Date().toISOString().split("T")[0]}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    if (!isAuthenticated || (user?.role !== "ADMIN" && user?.role !== "STAFF")) {
+        return null;
+    }
+
+    return (
+        <div className="min-h-screen bg-slate-100 flex">
+            {/* Sidebar */}
+            <aside className="w-64 bg-primary text-white flex flex-col fixed h-full">
+                <div className="p-6 border-b border-white/10">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
+                            <Building2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h1 className="font-bold text-lg">SUVIDHA</h1>
+                            <p className="text-xs text-white/60">Admin Panel</p>
+                        </div>
+                    </div>
+                </div>
+
+                <nav className="flex-1 p-4 space-y-1">
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = item.id === "reports";
+                        return (
+                            <Link
+                                key={item.id}
+                                href={item.href}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive ? "bg-white/20 text-white" : "text-white/70 hover:bg-white/10"
+                                    }`}
+                            >
+                                <Icon className="w-5 h-5" />
+                                <span className="font-medium">{item.name}</span>
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                <div className="p-4 border-t border-white/10">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { logout(); router.push("/"); }}
+                        className="w-full text-white/70 hover:text-white hover:bg-white/10"
+                    >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Logout
+                    </Button>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 ml-64 overflow-auto">
+                <header className="bg-white border-b px-6 py-4 sticky top-0 z-10">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-2xl font-bold text-primary">
+                                {isHindi ? "रिपोर्ट और एनालिटिक्स" : "Reports & Analytics"}
+                            </h2>
+                            <p className="text-muted-foreground text-sm">
+                                {isHindi ? "कियोस्क उपयोग और राजस्व रिपोर्ट" : "Kiosk usage and revenue reports"}
+                            </p>
+                        </div>
+                        <Button variant="cta" onClick={downloadReport} disabled={!reportData}>
+                            <Download className="w-4 h-4 mr-2" />
+                            {isHindi ? "रिपोर्ट डाउनलोड" : "Download Report"}
+                        </Button>
+                    </div>
+                </header>
+
+                <div className="p-6">
+                    {/* Report Type Selector */}
+                    <div className="bg-white rounded-xl p-4 shadow-sm border mb-6">
+                        <div className="flex items-center gap-4">
+                            <Calendar className="w-5 h-5 text-muted-foreground" />
+                            <div className="flex gap-2">
+                                {[
+                                    { key: "daily", label: isHindi ? "दैनिक" : "Daily" },
+                                    { key: "weekly", label: isHindi ? "साप्ताहिक" : "Weekly" },
+                                    { key: "monthly", label: isHindi ? "मासिक" : "Monthly" },
+                                ].map((type) => (
+                                    <button
+                                        key={type.key}
+                                        onClick={() => setReportType(type.key)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${reportType === type.key
+                                                ? "bg-primary text-white"
+                                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                            }`}
+                                    >
+                                        {type.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <div className="flex items-center justify-center h-64">
+                            <div className="animate-spin w-8 h-8 border-4 border-cta border-t-transparent rounded-full" />
+                        </div>
+                    ) : reportData ? (
+                        <>
+                            {/* Key Metrics */}
+                            <div className="grid grid-cols-4 gap-4 mb-6">
+                                <div className="bg-gradient-to-br from-success/10 to-success/5 rounded-xl p-6 border border-success/20">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <TrendingUp className="w-6 h-6 text-success" />
+                                        <span className="text-sm text-muted-foreground">
+                                            {isHindi ? "कुल राजस्व" : "Total Revenue"}
+                                        </span>
+                                    </div>
+                                    <p className="text-3xl font-bold text-success">
+                                        ₹{reportData.revenue.toLocaleString()}
+                                    </p>
+                                </div>
+
+                                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <CreditCard className="w-6 h-6 text-blue-600" />
+                                        <span className="text-sm text-muted-foreground">
+                                            {isHindi ? "लेनदेन" : "Transactions"}
+                                        </span>
+                                    </div>
+                                    <p className="text-3xl font-bold text-primary">
+                                        {reportData.transactions}
+                                    </p>
+                                </div>
+
+                                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <Users className="w-6 h-6 text-purple-600" />
+                                        <span className="text-sm text-muted-foreground">
+                                            {isHindi ? "नए उपयोगकर्ता" : "New Users"}
+                                        </span>
+                                    </div>
+                                    <p className="text-3xl font-bold text-primary">
+                                        {reportData.users}
+                                    </p>
+                                </div>
+
+                                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <MessageSquare className="w-6 h-6 text-amber-600" />
+                                        <span className="text-sm text-muted-foreground">
+                                            {isHindi ? "शिकायतें" : "Grievances"}
+                                        </span>
+                                    </div>
+                                    <p className="text-3xl font-bold text-primary">
+                                        {reportData.grievances}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Service Breakdown */}
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                                    <h3 className="font-bold text-primary mb-4 flex items-center gap-2">
+                                        <PieChart className="w-5 h-5" />
+                                        {isHindi ? "सेवा अनुसार राजस्व" : "Revenue by Service"}
+                                    </h3>
+                                    <div className="space-y-4">
+                                        {Object.entries(reportData.serviceBreakdown).map(([service, data]) => {
+                                            const svc = serviceIcons[service];
+                                            const Icon = svc?.icon || Building2;
+                                            const percentage = Math.round((data.revenue / reportData.revenue) * 100);
+                                            return (
+                                                <div key={service}>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`w-6 h-6 ${svc?.bg || "bg-slate-100"} rounded flex items-center justify-center`}>
+                                                                <Icon className={`w-3 h-3 ${svc?.color || "text-slate-600"}`} />
+                                                            </div>
+                                                            <span className="text-sm font-medium">{service}</span>
+                                                        </div>
+                                                        <span className="text-sm font-bold">₹{data.revenue.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full ${svc?.bg || "bg-slate-300"} rounded-full`}
+                                                            style={{ width: `${percentage}%` }}
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">{percentage}% of total</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl p-6 shadow-sm border">
+                                    <h3 className="font-bold text-primary mb-4 flex items-center gap-2">
+                                        <BarChart3 className="w-5 h-5" />
+                                        {isHindi ? "सेवा अनुसार लेनदेन" : "Transactions by Service"}
+                                    </h3>
+                                    <div className="space-y-4">
+                                        {Object.entries(reportData.serviceBreakdown).map(([service, data]) => {
+                                            const svc = serviceIcons[service];
+                                            const Icon = svc?.icon || Building2;
+                                            const totalTxns = Object.values(reportData.serviceBreakdown).reduce((a, b) => a + b.count, 0);
+                                            const percentage = Math.round((data.count / totalTxns) * 100);
+                                            return (
+                                                <div key={service}>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`w-6 h-6 ${svc?.bg || "bg-slate-100"} rounded flex items-center justify-center`}>
+                                                                <Icon className={`w-3 h-3 ${svc?.color || "text-slate-600"}`} />
+                                                            </div>
+                                                            <span className="text-sm font-medium">{service}</span>
+                                                        </div>
+                                                        <span className="text-sm font-bold">{data.count} txns</span>
+                                                    </div>
+                                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-primary/60 rounded-full"
+                                                            style={{ width: `${percentage}%` }}
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">{percentage}% of total</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Quick Report Types */}
+                            <div className="mt-6 bg-white rounded-xl p-6 shadow-sm border">
+                                <h3 className="font-bold text-primary mb-4 flex items-center gap-2">
+                                    <FileText className="w-5 h-5" />
+                                    {isHindi ? "अन्य रिपोर्ट" : "Other Reports"}
+                                </h3>
+                                <div className="grid grid-cols-4 gap-4">
+                                    {[
+                                        { name: isHindi ? "उपयोगकर्ता रिपोर्ट" : "User Report", desc: "User registration and activity" },
+                                        { name: isHindi ? "कियोस्क रिपोर्ट" : "Kiosk Report", desc: "Kiosk usage and uptime" },
+                                        { name: isHindi ? "शिकायत रिपोर्ट" : "Grievance Report", desc: "Complaint resolution times" },
+                                        { name: isHindi ? "कनेक्शन रिपोर्ट" : "Connection Report", desc: "New connection applications" },
+                                    ].map((report, idx) => (
+                                        <button
+                                            key={idx}
+                                            className="p-4 border rounded-lg hover:border-cta hover:bg-cta/5 transition-colors text-left"
+                                        >
+                                            <p className="font-medium text-primary">{report.name}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">{report.desc}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="text-center py-12">
+                            <p className="text-muted-foreground">No report data available</p>
+                        </div>
+                    )}
+                </div>
+            </main>
+        </div>
+    );
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -59,7 +59,7 @@ const PRIORITIES = [
   { id: "LOW", name: "Low", color: "bg-slate-100 text-slate-600" },
   { id: "MEDIUM", name: "Medium", color: "bg-amber-100 text-amber-700" },
   { id: "HIGH", name: "High", color: "bg-orange-100 text-orange-700" },
-  { id: "CRITICAL", name: "Critical", color: "bg-red-100 text-red-700" },
+  { id: "URGENT", name: "Urgent", color: "bg-red-100 text-red-700" },
 ];
 
 export default function NewGrievancePage() {
@@ -70,7 +70,7 @@ export default function NewGrievancePage() {
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     serviceType: "",
     category: "",
@@ -87,6 +87,13 @@ export default function NewGrievancePage() {
     { id: "WATER", name: "Water", icon: Droplets, color: "bg-water-light text-water" },
     { id: "MUNICIPAL", name: "Municipal", icon: Building2, color: "bg-municipal-light text-municipal" },
   ];
+
+  // Authentication check
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("/auth/login");
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,19 +125,18 @@ export default function NewGrievancePage() {
       const data = await res.json();
 
       if (data.success) {
-        setSuccess(data.data.ticketNumber);
+        setSuccess(data.data.ticketNo);
         toast({
           title: "Grievance Submitted!",
-          description: `Ticket #${data.data.ticketNumber} created`,
-          variant: "success",
+          description: `Ticket #${data.data.ticketNo} created`,
         });
       } else {
-        throw new Error(data.error || "Submission failed");
+        throw new Error(data.message || data.error || "Submission failed");
       }
     } catch (error: any) {
       toast({
         title: "Submission Failed",
-        description: error.message,
+        description: error.message || "Please check your input and try again",
         variant: "destructive",
       });
     } finally {
@@ -138,8 +144,8 @@ export default function NewGrievancePage() {
     }
   };
 
+  // Return null while redirecting
   if (!isAuthenticated) {
-    router.push("/auth/login");
     return null;
   }
 
@@ -205,11 +211,10 @@ export default function NewGrievancePage() {
                 key={svc.id}
                 type="button"
                 onClick={() => setFormData({ ...formData, serviceType: svc.id, category: "" })}
-                className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all cursor-pointer ${
-                  formData.serviceType === svc.id
-                    ? "border-cta bg-cta/5"
-                    : "border-slate-200 hover:border-cta/50"
-                }`}
+                className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all cursor-pointer ${formData.serviceType === svc.id
+                  ? "border-cta bg-cta/5"
+                  : "border-slate-200 hover:border-cta/50"
+                  }`}
               >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${svc.color}`}>
                   <svc.icon className="w-5 h-5" />
@@ -230,11 +235,10 @@ export default function NewGrievancePage() {
                   key={cat}
                   type="button"
                   onClick={() => setFormData({ ...formData, category: cat })}
-                  className={`px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
-                    formData.category === cat
-                      ? "bg-cta text-white"
-                      : "bg-white border border-slate-200 hover:border-cta"
-                  }`}
+                  className={`px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer ${formData.category === cat
+                    ? "bg-cta text-white"
+                    : "bg-white border border-slate-200 hover:border-cta"
+                    }`}
                 >
                   {cat}
                 </button>
@@ -252,11 +256,10 @@ export default function NewGrievancePage() {
                 key={p.id}
                 type="button"
                 onClick={() => setFormData({ ...formData, priority: p.id })}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                  formData.priority === p.id
-                    ? `${p.color} ring-2 ring-offset-2 ring-cta/30`
-                    : "bg-white border border-slate-200 hover:border-cta"
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${formData.priority === p.id
+                  ? `${p.color} ring-2 ring-offset-2 ring-cta/30`
+                  : "bg-white border border-slate-200 hover:border-cta"
+                  }`}
               >
                 {p.name}
               </button>
@@ -286,12 +289,16 @@ export default function NewGrievancePage() {
           </Label>
           <textarea
             id="description"
-            placeholder="Describe your issue in detail..."
+            placeholder="Describe your issue in detail (minimum 10 characters)..."
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="mt-2 w-full h-32 px-4 py-3 rounded-lg border-2 border-slate-200 focus:border-cta focus:ring-2 focus:ring-cta/20 outline-none transition-colors resize-none"
             required
+            minLength={10}
           />
+          <p className={`text-xs mt-1 ${formData.description.length < 10 ? "text-destructive" : "text-muted-foreground"}`}>
+            {formData.description.length}/10 characters minimum
+          </p>
         </div>
 
         {/* Connection Number (Optional) */}
@@ -328,7 +335,7 @@ export default function NewGrievancePage() {
           variant="cta"
           size="xl"
           className="w-full"
-          disabled={loading || !formData.serviceType || !formData.category || !formData.subject || !formData.description}
+          disabled={loading || !formData.serviceType || !formData.category || !formData.subject || formData.description.length < 10}
         >
           {loading ? (
             <>

@@ -23,7 +23,7 @@ interface Grievance {
   serviceType: string;
   category: string;
   subject: string;
-  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+  status: "SUBMITTED" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED";
   priority: string;
   createdAt: string;
   updatedAt: string;
@@ -33,7 +33,7 @@ export default function GrievancesPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated, tokens } = useAuthStore();
-  
+
   const [grievances, setGrievances] = useState<Grievance[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"ALL" | "OPEN" | "RESOLVED">("ALL");
@@ -64,15 +64,17 @@ export default function GrievancesPage() {
   };
 
   const statusStyles: Record<string, { icon: any; bg: string; text: string }> = {
+    SUBMITTED: { icon: AlertCircle, bg: "bg-amber-100", text: "text-amber-700" },
     OPEN: { icon: AlertCircle, bg: "bg-amber-100", text: "text-amber-700" },
     IN_PROGRESS: { icon: Clock, bg: "bg-blue-100", text: "text-blue-700" },
     RESOLVED: { icon: CheckCircle, bg: "bg-success/10", text: "text-success" },
     CLOSED: { icon: CheckCircle, bg: "bg-slate-100", text: "text-slate-600" },
+    REJECTED: { icon: AlertCircle, bg: "bg-red-100", text: "text-red-700" },
   };
 
   const filteredGrievances = grievances.filter((g) => {
     if (filter === "ALL") return true;
-    if (filter === "OPEN") return g.status === "OPEN" || g.status === "IN_PROGRESS";
+    if (filter === "OPEN") return g.status === "SUBMITTED" || g.status === "IN_PROGRESS";
     if (filter === "RESOLVED") return g.status === "RESOLVED" || g.status === "CLOSED";
     return true;
   });
@@ -109,11 +111,10 @@ export default function GrievancesPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                filter === f
-                  ? "bg-cta text-white"
-                  : "bg-white border border-slate-200 text-slate-600 hover:border-cta"
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors cursor-pointer ${filter === f
+                ? "bg-cta text-white"
+                : "bg-white border border-slate-200 text-slate-600 hover:border-cta"
+                }`}
             >
               {f === "ALL" ? "All" : f === "OPEN" ? "Open" : "Resolved"}
             </button>
@@ -128,7 +129,8 @@ export default function GrievancesPage() {
         ) : filteredGrievances.length > 0 ? (
           <div className="space-y-4">
             {filteredGrievances.map((grievance) => {
-              const status = statusStyles[grievance.status];
+              // Safe fallback for status - use SUBMITTED style as default if status not found
+              const status = statusStyles[grievance.status] || statusStyles.SUBMITTED;
               const StatusIcon = status.icon;
 
               return (
@@ -140,7 +142,7 @@ export default function GrievancesPage() {
                   <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <MessageSquare className="w-6 h-6 text-slate-600" />
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs text-muted-foreground font-mono">

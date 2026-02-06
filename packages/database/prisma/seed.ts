@@ -24,6 +24,25 @@ async function main() {
   });
   console.log(`✅ Created user: ${user.name} (${user.phone})`);
 
+  // Create admin user
+  const admin = await prisma.user.upsert({
+    where: { phone: "9999999999" },
+    update: {},
+    create: {
+      phone: "9999999999",
+      name: "Admin User",
+      email: "admin@suvidha.gov.in",
+      address: "SUVIDHA HQ, Smart City Complex",
+      city: "New Delhi",
+      state: "Delhi",
+      pincode: "110001",
+      language: "en",
+      isVerified: true,
+      role: "ADMIN",
+    },
+  });
+  console.log(`✅ Created admin: ${admin.name} (${admin.phone})`);
+
   // Create service connections
   const connections = await Promise.all([
     prisma.serviceConnection.upsert({
@@ -218,9 +237,14 @@ async function main() {
   console.log("✅ Created system alerts");
 
   console.log("\n🎉 Seed completed successfully!");
-  console.log("\n📋 Test Login:");
-  console.log("   Phone: 9876543210");
-  console.log("   OTP: 123456 (mock OTP always works in dev mode)");
+  console.log("\n📋 Test Logins:");
+  console.log("   CITIZEN:");
+  console.log("     Phone: 9876543210");
+  console.log("     OTP: (check console for mock OTP)");
+  console.log("\n   ADMIN:");
+  console.log("     Phone: 9999999999");
+  console.log("     OTP: (check console for mock OTP)");
+  console.log("     Access: /admin");
 }
 
 main()
